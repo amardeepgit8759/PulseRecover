@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional, Dict, Any
+import uuid
 from .. import models
 from .policy import can_retry, get_next_retry_delay, DEFAULT_POLICY
 
@@ -86,6 +87,39 @@ def attribute_failure(db: Session, order_id: int, signals: Optional[Dict] = None
     }
 
 
+def create_recovery_link(db: Session, order_id: int) -> Dict[str, Any]:
+    """
+    Create a mock recovery payment link.
+    In real project this would call Razorpay Payment Links API.
+    """
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        return {"error": "Order not found"}
+
+    recovery_link_id = f"plink_mock_{uuid.uuid4().hex[:10]}"
+    recovery_url = f"https://rzp.io/i/{recovery_link_id}"
+
+    audit = models.AuditLog(
+        order_id=order_id,
+        action="create_recovery_link",
+        reason=f"Created recovery payment link for amount ₹{order.amount}",
+        policy_applied="default_policy",
+        metadata_={
+            "recovery_link_id": recovery_link_id,
+            "recovery_url": recovery_url,
+            "amount": order.amount
+        }
+    )
+    db.add(audit)
+    db.commit()
+
+    return {
+        "recovery_link_id": recovery_link_id,
+        "recovery_url": recovery_url,
+        "amount": order.amount
+    }
+
+
 def decide_and_act(db: Session, order_id: int) -> Dict[str, Any]:
     details = get_failure_details(db, order_id)
     if "error" in details:
@@ -102,30 +136,48 @@ def decide_and_act(db: Session, order_id: int) -> Dict[str, Any]:
         first_attempt_time=order.created_at
     )
 
+    # ---------- GRACEFUL STOP ----------
     if not allowed:
         order.status = "deferred"
+
+        # Still create a recovery link so merchant can recover manually later
+        link_info = create_recovery_link(db, order_id)
+
         audit = models.AuditLog(
             order_id=order_id,
-            action="stop",
+            action="stop_gracefully",
             reason=reason,
-            policy_applied="default_policy"
+            policy_applied="default_policy",
+            metadata_={
+                "recovery_url": link_info.get("recovery_url"),
+                "message": "Auto-recovery stopped. Recovery link created for manual follow-up."
+            }
         )
         db.add(audit)
         db.commit()
+
         return {
-            "action": "stop",
+            "action": "stop_gracefully",
             "reason": reason,
-            "status": "deferred"
+            "status": "deferred",
+            "recovery_url": link_info.get("recovery_url"),
+            "message": "Policy blocked auto-retry. Recovery link created for merchant."
         }
 
+    # ---------- RECOVERY PATH ----------
     delay = get_next_retry_delay(attempts)
+    link_info = create_recovery_link(db, order_id)
 
     audit = models.AuditLog(
         order_id=order_id,
         action="retry_scheduled",
-        reason=f"Policy passed. Scheduling retry after {delay}s. Previous attempts: {attempts}",
+        reason=f"Policy passed. Scheduling retry after {delay}s. Recovery link also created.",
         policy_applied="default_policy",
-        metadata_={"delay_seconds": delay, "attempt_number": attempts + 1}
+        metadata_={
+            "delay_seconds": delay,
+            "attempt_number": attempts + 1,
+            "recovery_url": link_info.get("recovery_url")
+        }
     )
     db.add(audit)
 
@@ -135,6 +187,8 @@ def decide_and_act(db: Session, order_id: int) -> Dict[str, Any]:
     return {
         "action": "retry_scheduled",
         "delay_seconds": delay,
+        "attempt_number": attempts + 1,
+        "recovery_url": link_info.get("recovery_url"),
         "reason": "Policy checks passed",
-        "attempt_number": attempts + 1
+        "status": "recovered"
     }
