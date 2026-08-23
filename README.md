@@ -1,85 +1,58 @@
-# 💳 Network-Resilient Payment Recovery Agent
-> **Razorpay AI Buildathon – Track 03: AI Revenue Recovery**
+# PulseRecover – Network-Resilient Payment Recovery Agent
 
-An intelligent, policy-driven payment recovery agent built with **FastAPI**, **SQLAlchemy**, and **Background Tasks**. It automatically attributes payment failure root causes (such as bank network timeouts vs user cancellations) and executes automated, risk-bounded retry policies to maximize payment recovery rates.
+**Razorpay AI Buildathon 2026 | Track 03: AI Revenue Recovery**
 
----
-
-## 🌟 Key Features
-
-- **🔍 Heuristic Failure Attribution**: Categorizes transaction failures (`network`, `bank`, `user`, `gateway`) using error codes, failure messages, and latency signals (`time_taken_ms`).
-- **🛡️ Policy-Driven Recovery**: Enforces safety guardrails before triggering auto-retries:
-  - Max 3 retries per transaction.
-  - ₹5,000 auto-retry limit.
-  - Allowed payment methods (`upi`, `card`).
-  - Staggered retry delays (`30s`, `120s`, `300s`).
-  - 2-hour maximum recovery window.
-- **⚡ Asynchronous Background Tasks**: Non-blocking failure processing and background retry orchestration using FastAPI `BackgroundTasks`.
-- **📊 Real-time Recovery Analytics**: Comprehensive audit trails (`/orders/{id}/audit`) and overall recovery rate stats (`/stats`).
+> An intelligent payment recovery agent that detects network-related payment failures, attributes root causes, and executes **policy-bounded** recovery actions — with full auditability and graceful failure handling.
 
 ---
 
-## 🏗️ Project Structure
+## The Problem
 
-```
-network-recovery-agent/
-├── backend/
-│   ├── app/
-│   │   ├── agent/
-│   │   │   ├── policy.py      # Recovery policy rules & limits
-│   │   │   └── tools.py       # Failure attribution & decision engine
-│   │   ├── database.py        # Database session & engine setup
-│   │   ├── main.py            # FastAPI routes & background task handlers
-│   │   └── models.py          # SQLAlchemy ORM models
-│   ├── .env.example
-│   ├── requirements.txt
-│   └── recovery_agent.db
-├── .gitignore
-└── README.md
-```
+According to a LocalCircles survey (August 2026):
+
+- **83%** of digital payment users in India face at least one disruption every month due to poor mobile networks
+- **37%** of users lose more than 20% of their monthly transactions
+- Most of these failures are silent and lead to **revenue leakage** for merchants
+
+Traditional retry systems treat all failures the same. They don’t understand *why* a payment failed.
 
 ---
 
-## 🚀 Quickstart Guide
+## The Solution
 
-### 1. Install Dependencies
-```bash
-cd backend
-python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
+**PulseRecover** is a network-aware AI recovery agent that:
 
-pip install -r requirements.txt
-```
+1. Detects payment failures
+2. Attributes the root cause (`network`, `bank`, `user`, `gateway`)
+3. Applies **hard policy rules** before taking any action
+4. Executes bounded recovery (retry / create recovery link / stop gracefully)
+5. Maintains a complete **immutable audit trail**
 
-### 2. Run the Development Server
-```bash
-python -m uvicorn app.main:app --reload
-```
-The server will start at `http://127.0.0.1:8000`. Direct your browser to `http://127.0.0.1:8000/docs` to test endpoints via Swagger UI.
+Every money-related decision is **explainable, bounded, and gated**.
 
 ---
 
-## 📡 API Endpoints
+## Why This Project is Unique
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/` | Project details & version status |
-| `GET` | `/health` | Server health check |
-| `POST` | `/orders` | Create a new payment order |
-| `POST` | `/simulate/network-failure` | Simulate payment failure & trigger agent recovery |
-| `GET` | `/orders` | List latest payment orders |
-| `GET` | `/orders/{order_id}/audit` | View detailed audit trail for an order |
-| `GET` | `/stats` | View real-time recovery metrics & recovery rate % |
+| Feature | How PulseRecover handles it |
+|--------|-----------------------------|
+| Network-aware attribution | Uses error codes + latency signals (`time_taken_ms`) |
+| Hard policy engine | Max retries, amount limits, time windows |
+| Graceful failure | Creates recovery link even when auto-retry is blocked |
+| Full auditability | Every decision is logged with reason + policy applied |
+| Measurable impact | Real-time recovery rate via `/stats` |
 
 ---
 
-## 🐙 Push to GitHub
+## The Razorpay Bar
 
-```bash
-git remote add origin https://github.com/YOUR_USERNAME/network-recovery-agent.git
-git branch -M main
-git push -u origin main
-```
+This project is designed to meet the evaluation criteria:
+
+- Every money action is **explainable**
+- Actions are **bounded and gated** by policy
+- Full **audit trail** is available
+- One failure is handled **gracefully**
+
+---
+
+## Architecture
