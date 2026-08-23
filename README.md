@@ -1,6 +1,6 @@
 # PulseRecover – Network-Resilient Payment Recovery Agent
 
-**Razorpay AI Buildathon 2026 | Track 03: AI Revenue Recovery**
+** AI Revenue Recovery**
 
 > An intelligent payment recovery agent that detects network-related payment failures, attributes root causes, and executes **policy-bounded** recovery actions — with full auditability and graceful failure handling.
 
